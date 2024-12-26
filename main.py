@@ -22,15 +22,10 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
 
-
-
-# Predefined email credentials (you can extend this as needed)
-
 # Global dictionary to store user-provided email temporarily
 user_email = {}
 
-
-def fetch_latest_email(email_user, email_pass):
+def fetch_latest_otp(email_user, email_pass):
     try:
         # Connect to the email server
         if "gmail.com" in email_user:
@@ -45,8 +40,6 @@ def fetch_latest_email(email_user, email_pass):
         # Search for all emails
         status, messages = mail.search(None, 'ALL')
         email_ids = messages[0].split()
-        email_content = None
-        email_time = None
 
         # Process emails from latest to oldest
         for email_id in reversed(email_ids):
@@ -54,11 +47,6 @@ def fetch_latest_email(email_user, email_pass):
             for response_part in msg_data:
                 if isinstance(response_part, tuple):
                     msg = email.message_from_bytes(response_part[1])
-
-                    # Decode email subject
-                    subject = email.header.decode_header(msg['subject'])[0][0]
-                    if isinstance(subject, bytes):
-                        subject = subject.decode()
 
                     # Retrieve the email body
                     email_body = ""
@@ -79,30 +67,26 @@ def fetch_latest_email(email_user, email_pass):
                             email_body = payload.decode()
                     if email_body:
                         email_body = re.sub(r'<[^>]+>', '', email_body).strip()
-                    # Check if the email is a reset password email
-                    if 'reset password' in (subject.lower() + email_body.lower()):
-                        logging.info("Reset password email ignored. Checking the next email...")
-                        continue  # Skip to the next email
 
-                    # Get the email sent time
-                    date_header = msg.get('Date')
-                    if date_header:
-                        email_time = parsedate_to_datetime(date_header)
+                    # Search for a 6-digit OTP code in the email body
+                    otp_match = re.search(r'\b\d{6}\b', email_body)
+                    if otp_match:
+                        otp_code = otp_match.group(0)
 
-                    # Set the email content and exit the loop
-                    email_content = email_body
-                    break
+                        # Get the email sent time
+                        date_header = msg.get('Date')
+                        email_time = None
+                        if date_header:
+                            email_time = parsedate_to_datetime(date_header)
 
-            # If a valid email is found, exit the loop
-            if email_content:
-                break
+                        mail.logout()
+                        return otp_code, email_time
 
         mail.logout()
-        return email_content, email_time
-    except Exception as e:
-        logging.error(f"Error fetching email: {str(e)}")
         return None, None
-
+    except Exception as e:
+        logging.error(f"Error fetching OTP: {str(e)}")
+        return None, None
 
 async def start_command(update: Update, context: CallbackContext):
     await update.message.reply_text("Welcome! I'm your bot. Use /help to see available commands.")
@@ -114,7 +98,7 @@ Here are the available commands:
 /start - Start the bot
 /help - Show this help message
 /status - Get the bot status
-/fetch - Fetch the latest email (you'll need to provide your email)
+/fetch - Fetch the latest OTP code (you'll need to provide your email)
     """
     await update.message.reply_text(commands)
 
@@ -124,8 +108,7 @@ async def status_command(update: Update, context: CallbackContext):
 
 # Fetch command
 async def fetch_command(update: Update, context: CallbackContext):
-    await update.message.reply_text("Please provide your email address to fetch the latest email.")
-
+    await update.message.reply_text("Please provide your email address to fetch the latest OTP code.")
 
 async def handle_email(update: Update, context: CallbackContext):
     user_id = update.message.chat_id
@@ -135,27 +118,26 @@ async def handle_email(update: Update, context: CallbackContext):
     if provided_email in EMAIL_CREDENTIALS:
         user_email[user_id] = provided_email
         await update.message.reply_text(
-            f"Email '{provided_email}' recognized. Fetching your latest email..."
+            f"Email '{provided_email}' recognized. Fetching your latest OTP code..."
         )
 
-        # Fetch the latest email
+        # Fetch the latest OTP code
         email_pass = EMAIL_CREDENTIALS[provided_email]
-        email_content, email_time = fetch_latest_email(provided_email, email_pass)
+        otp_code, email_time = fetch_latest_otp(provided_email, email_pass)
 
-        if email_content:
+        if otp_code:
             if email_time:
                 await update.message.reply_text(
-                    f"Latest Email Content:\n\n{email_content}\n\nSent on: {email_time.strftime('%Y-%m-%d %H:%M:%S')}"
+                    f"OTP code is: {otp_code}\n\nReceived on: {email_time.strftime('%Y-%m-%d %H:%M:%S')}"
                 )
             else:
-                await update.message.reply_text(f"Latest Email Content:\n\n{email_content}")
+                await update.message.reply_text(f"OTP code is: {otp_code}")
         else:
-            await update.message.reply_text("No new email found or your inbox is empty.")
+            await update.message.reply_text("No OTP code found in your recent emails.")
     else:
         await update.message.reply_text(
             "Sorry, the provided email address is not recognized. Please try again with a valid email."
         )
-
 
 def main():
     token = os.getenv("TELEGRAM_BOT_TOKEN", TELEGRAM_BOT_TOKEN)
