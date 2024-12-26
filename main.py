@@ -7,18 +7,24 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, CallbackContext, MessageHandler, filters
 import os
 import logging
+from dotenv import load_dotenv
+
+load_dotenv()
+
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+EMAIL_CREDENTIALS = eval(os.getenv("EMAIL_CREDENTIALS")) 
+if not TELEGRAM_BOT_TOKEN or not EMAIL_CREDENTIALS:
+    raise ValueError("Missing TELEGRAM_BOT_TOKEN or EMAIL_CREDENTIALS in environment variables.")
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s"
 )
-TELEGRAM_BOT_TOKEN = "8009621540:AAFSaVP6AiuijCRt5qC_-EDFr2y2wLgIpz8"
+
 
 
 # Predefined email credentials (you can extend this as needed)
-EMAIL_CREDENTIALS = {
-    "fekirfzohra@gmail.com" : "sugz yqwa gpce yspg"
-}
+
 # Global dictionary to store user-provided email temporarily
 user_email = {}
 
