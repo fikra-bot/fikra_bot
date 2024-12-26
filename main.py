@@ -7,15 +7,17 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, CallbackContext, MessageHandler, filters
 import os
 import logging
+import json
 from dotenv import load_dotenv
 
 load_dotenv()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-EMAIL_CREDENTIALS = eval(os.getenv("EMAIL_CREDENTIALS")) 
+EMAIL_CREDENTIALS = json.loads(os.getenv("EMAIL_CREDENTIALS", "{}")) 
 if not TELEGRAM_BOT_TOKEN or not EMAIL_CREDENTIALS:
     raise ValueError("Missing TELEGRAM_BOT_TOKEN or EMAIL_CREDENTIALS in environment variables.")
 
+print("Environment variables loaded successfully!")
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s"
